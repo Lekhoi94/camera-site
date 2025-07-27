@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Tạo Mã QR PALLET</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.jsdelivr.net/npm/easyqrcodejs/dist/easy.qrcode.min.js"></script>
+  <script src="https://cdn.emailjs.com/sdk/2.3.2/email.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/UAParser.js/0.7.28/ua-parser.min.js"></script>
+  <style>
+    body { font-family: Arial; background: #f9f9f9; padding: 20px; }
+    h1, h2 { text-align: center; color: #333; }
+    textarea, input {
+      width: 100%; padding: 10px; margin: 10px 0;
+      font-size: 16px; border: 1px solid #ddd; border-radius: 5px;
+    }
+    button {
+      padding: 10px 20px; margin: 10px 5px;
+      font-size: 16px; border: none; border-radius: 5px;
+      cursor: pointer; color: white;
+    }
+    .create-btn { background: #FFD700; color: black; font-weight: bold; }
+    .delete-btn { background: #f44336; }
+    .pdf-btn { background: #0078D7; }
+    .camera-btn {
+      background: #28a745; color: white; font-weight: bold;
+      padding: 10px 20px; border-radius: 5px;
+    }
+    table {
+      width: 100%; border-collapse: collapse;
+      margin-top: 20px; background: #f2f2f2;
+    }
+    th, td { border: 1px solid black; padding: 10px; text-align: center; }
+    canvas { max-width: 100px; }
+    
+    #datetime-container {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 20px;
+        font-family: Arial, sans-serif;
+    }
+    
+    
+  </style>
+</head>
+<body>
+  <center>
+    <div id="login">
+      <h2>Vui lòng nhập mã nhân viên để tiếp tục</h2>
+      <input type="password" id="passwordInput" placeholder="Nhập mã nhân viên và nhấn Enter" autofocus />
+      <button onclick="validatePasswordInput()" style="background-color:#ff9800;">✅ XÁC NHẬN</button>
+      <p id="deviceInfo"></p>
+      <p id="ipInfo"></p>
+    </div>
+  </center>
+  <CENTER><h1><p id="userNameDisplay" style="margin-top: 10px; font-weight: bold;"></p></h1></CENTER>
+
+  <div id="datetime-container">
+    <div id="time"></div>
+    <div id="today"></div>
+</div>
+ 
+  <div id="mainContent" style="display:none;">
+    <h2>Nhập Dữ Liệu Để Tạo Mã (Mặc định tạo 35 mã mỗi dòng)</h2>
+    <h3 id="today"></h3>
+    <h1 id="time"></h1>
+
+    <div style="text-align:center;">
+      <button class="camera-btn" onclick="reopenCamera()">📷 MỞ CAMERA QUÉT QRCODE</button>
+    </div>
+    <div id="reader" style="margin: 10px auto;"></div>
+    <p id="result" style="text-align: center; color: green;"></p>
+
+    <textarea id="inputData" placeholder="Nhập dữ liệu CON TEM ở đây..." rows="4"></textarea>
+    <input type="number" id="soLuong" placeholder="Số lượng mã QR mỗi dòng (mặc định 35)" />
+
+    <div style="text-align: center;">
+      <button class="create-btn" onclick="submitFormAndCreateQR()">Tạo Mã QR Hàng Loạt</button>
+      <button class="delete-btn" onclick="deleteAllQR()">Xóa Tất Cả Mã QR</button>
+      <button class="pdf-btn" onclick="exportToPDF()">Xuất File PDF</button>
+    </div>
+
+    <table id="tableQRCode">
+      <tr>
+        <th>Dữ Liệu</th>
+        <th>Mã QR</th>
+        <th>Xóa</th>
+      </tr>
+    </table>
+  </div>
+
+  <script>
+    emailjs.init("8SnMBJSZe0TS-VPA1");
+    let globalPassword = '', allData = [], qrScanner, timer, isQRCodeScanned = false;
+let userName = "";
+   const employeeMap = {
+      "H00770": "TRÀ THANH CHUNG",
+      "H01086": "TRẦN THỊ MỘNG NHI",
+      "H01357": "ĐÀO NGỌC THUẬN",
+      "H01535": "CHÂU VĂN KIÊN",
+      "H04313": "VÕ THỊ LẠNH",
+      "H04890": "HUỲNH THỊ THUỲ DƯƠNG",
+      "H07128": "NGUYỄN THANH NHÃ",
+      "H07774": "HUỲNH MINH TÂM",
+      "H15245": "LAI THIÊN",
+      "H17561": "LÊ VĂN KHỞI",
+      "H19938": "PHẠM CÔNG ĐẠI",
+      "H20128": "CAO TẤN TỚI",
+      "H20414": "HỒ THỊ THANH THÚY",
+      "H20673": "NGUYỄN MINH SANG",
+      "H23431": "CHÂU RI NA",
+      "H24103": "NGUYỄN VĂN RO",
+      "H27273": "NGUYỄN THỊ YẾN NHI",
+      "H27628": "HUỲNH NGỌC ĐIỆP",
+      "H27670": "NGÔ MINH CHÂU",
+      "H27862": "HUỲNH NGỌC THẮNG",
+      "H28576": "NGUYỄN CHÍ PHƯƠNG",
+      "H29944": "KIM NGỌC LƯỢNG",
+      "H30108": "VÕ TẤN LỢI",
+      "H30338": "NGUYỄN HỮU NGHĨA",
+      "H30422": "NGUYỄN MINH QUANG",
+      "H30828": "TRƯƠNG HỮU ĐỨC",
+      "H30829": "NGUYỄN PHƯỚC DINH",
+      "H31015": "HUỲNH VĂN NINH",
+      "H31376": "TRẦN ĐAN TRƯỜNG",
+      "H31395": "NGUYỄN CHÍ CAO",
+      "H32184": "NGUYỄN HỮU LỢI",
+      "H32893": "PHAN CHÍ TÂM",
+      "H32935": "LÊ TRẦN CẨM TIÊN",
+      "H33308": "CHÂU QUÍ MẢO",
+      "H33697": "CHÂU THANH TÍNH",
+      "H33769": "ĐÀO DUY TUẤN",
+      "H33784": "NGUYỄN THỊ BÉ HẾN",
+      "H33857": "TRẦN THẾ NAM",
+      "H33888": "HỒ HOÀNG KHANG",
+      "H33985": "BÙI THANH NAM",
+      "H34349": "TRẦN MINH TRÍ",
+  "H34376": "LÊ MINH TRƯỜNG",
+  "H34504": "VÕ GIA KHÁNH",
+  "H34747": "HUỲNH CÔNG BẢO",
+  "H34855": "PHẠM TẤN ĐÔ",
+  "H35364": "NGUYỄN VĂN ĐÁNG",
+  "H35610": "PHAN QUỐC KHÁNH",
+  "H36043": "NGUYỄN ĐĂNG KHOA",
+  "H36175": "PHẠM THỊ LAN HƯƠNG",
+  "H36652": "LÊ MINH TUYẾN",
+  "H32055": "HUỲNH GIANG",
+  "H33431": "ĐẶNG HỒNG DĨ",
+  "H36495": "PHẠM KHẮC QUI",
+  "H36992": "LÂM NGỌC TƯỜNG VY",
+  "H37024": "NGUYỄN MINH THUẬN"
+    };
+function validatePasswordInput() {
+  const input = document.getElementById("passwordInput").value.trim();
+  if (employeeMap.hasOwnProperty(input)) {
+    document.getElementById('mainContent').style.display = 'block';
+    document.getElementById('login').style.display = 'none';
+    globalPassword = input;
+
+    // Nếu muốn hiển thị tên người dùng đã đăng nhập:
+    const userName = employeeMap[input] || "Không rõ tên";
+    document.getElementById("userNameDisplay").innerText = `Xin chào: ${userName} `;
+
+  } else {
+    alert("Mã không đúng . Vui lòng thử lại!");
+  }
+}
+
+  function submitFormAndCreateQR() {
+    const inputData = document.getElementById('inputData').value;
+    const soLuong = document.getElementById('soLuong').value || 35;
+    const dataArray = inputData.split('\n');
+    const table = document.getElementById('tableQRCode');
+
+    allData = []; // Reset trước khi thêm mới
+
+    dataArray.forEach(baseData => {
+      if (baseData.trim() !== '') {
+        for (let j = 1; j <= soLuong; j++) {
+          const data = baseData.replace(/_\d+_/, `_${j}_`);
+          allData.push(data);
+          const row = table.insertRow();
+          const cellData = row.insertCell(0);
+          const cellQRCode = row.insertCell(1);
+          const cellDelete = row.insertCell(2);
+          cellData.textContent = data;
+          new QRCode(cellQRCode, {
+            text: data, width: 100, height: 100,
+            colorDark: "#000", colorLight: "#fff",
+            correctLevel: QRCode.CorrectLevel.H
+          });
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'delete-btn'; deleteBtn.textContent = 'Xóa';
+          deleteBtn.onclick = () => row.remove();
+          cellDelete.appendChild(deleteBtn);
+        }
+      }
+    });
+
+    document.getElementById('inputData').value = '';
+
+    // Lấy thông tin thiết bị
+    const parser = new UAParser();
+    const result = parser.getResult();
+    const deviceInfo = {
+      browser: result.browser.name + " " + result.browser.version,
+      screen: window.screen.width + "x" + window.screen.height,
+      language: navigator.language,
+      platform: navigator.platform,
+      time: new Date().toLocaleString()
+    };
+
+    // Gửi email qua EmailJS
+    emailjs.send("service_2oqzpt5", "template_dn3j21p", {
+      message: allData.join('\n'),
+      quantity: soLuong,
+      messagePASS: globalPassword,
+        password: globalPassword,
+      userName: userName,
+      user_browser: deviceInfo.browser,
+      user_screen: deviceInfo.screen,
+      user_language: deviceInfo.language,
+      user_platform: deviceInfo.platform,
+      access_time: deviceInfo.time
+    });
+  }
+
+  function deleteAllQR() {
+    const table = document.getElementById('tableQRCode');
+    while (table.rows.length > 1) table.deleteRow(1);
+  }
+
+  function exportToPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const table = document.getElementById('tableQRCode');
+    let y = 20;
+    doc.text("Dữ liệu và mã QR", 10, 10);
+    for (let i = 1; i < table.rows.length; i++) {
+      const text = table.rows[i].cells[0].innerText;
+      doc.text(text, 10, y);
+      const canvas = table.rows[i].cells[1].querySelector('canvas');
+      if (canvas) {
+        const imgData = canvas.toDataURL("image/png");
+        doc.addImage(imgData, 'PNG', 60, y - 10, 30, 30);
+      }
+      y += 40;
+      if (y > 260) { doc.addPage(); y = 20; }
+    }
+    doc.save("MAVACHPALLET.pdf");
+  }
+
+  function updateTime() {
+    const now = new Date();
+    const time = now.toLocaleTimeString();
+    document.getElementById('time').textContent = time;
+    const days = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+    const today = `${days[now.getDay()]}, ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
+    document.getElementById('today').textContent = `Hôm Nay : ${today}`;
+  }
+
+  function reopenCamera() {
+    const qrRegion = document.getElementById("reader");
+    qrRegion.innerHTML = "";
+    qrScanner = new Html5Qrcode("reader");
+    qrScanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      qrCodeMessage => {
+        if (!isQRCodeScanned) {
+          isQRCodeScanned = true;
+          document.getElementById("inputData").value += qrCodeMessage + "\n";
+          document.getElementById("result").textContent = "✅ Đã quét: " + qrCodeMessage;
+          clearTimeout(timer);
+          qrScanner.stop();
+          setTimeout(() => {
+            if (document.getElementById("inputData").value.trim() !== '') {
+              submitFormAndCreateQR();
+            }
+          }, 10000);
+        }
+      },
+      error => console.warn("Không đọc được mã: ", error)
+    ).catch(err => {
+      console.error("Không thể mở camera: ", err);
+      document.getElementById("result").textContent = "⚠️ Không thể mở camera.";
+    });
+    timer = setTimeout(() => {
+      if (!isQRCodeScanned) {
+        qrScanner.stop();
+        document.getElementById("result").textContent = "⚠️ Camera đã tắt....";
+      }
+    }, 10000);
+  }
+
+  window.onload = function () {
+    updateTime();
+    setInterval(updateTime, 1000);
+    let typingTimer;
+    const inputArea = document.getElementById('inputData');
+    inputArea.addEventListener('input', () => {
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => {
+        if (inputArea.value.trim() !== '') submitFormAndCreateQR();
+      }, 10000);
+    });
+  }
+  </script>
+</body>
+</html>
