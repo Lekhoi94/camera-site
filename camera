@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mở Camera</title>
+</head>
+<body>
+  <h3>Mở Camera</h3>
+  <video id="video" width="100%" height="auto" autoplay></video>
+
+  <script>
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      .then(stream => {
+        document.getElementById('video').srcObject = stream;
+      })
+      .catch(err => {
+        alert("Không thể truy cập camera: " + err);
+      });
+  </script>
+</body>
+</html>
